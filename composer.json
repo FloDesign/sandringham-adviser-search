@@ -1,0 +1,23 @@
+{
+  "name": "flodesign/sandringham-adviser-search",
+  "description": "Custom search form handler for Sandringham microsites",
+  "type": "wordpress-plugin",
+  "require": {
+    "composer/installers": "^1.4",
+    "php": ">=5.3.2"
+  },
+  "require-dev": {
+    "composer/composer": "^1.5",
+    "phpunit/phpunit": "^6.5",
+    "squizlabs/php_codesniffer": "^3.2",
+    "10up/wp_mock": "0.3.0"
+  },
+  "license": "GPL",
+  "authors": [
+    {
+      "name": "Craig Thompson",
+      "email": "craig@flodesign.co.uk",
+      "homepage": "https://flodesign.co.uk"
+    }
+  ]
+}
