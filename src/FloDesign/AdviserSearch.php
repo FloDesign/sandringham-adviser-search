@@ -12,22 +12,20 @@ class AdviserSearch {
 	
 	public function init() {
 		add_action( 'init', [ $this, 'init' ], 20 );
-		add_action( "admin_post_adviser_search", [ $this, "flodesign_adviser_search" ], 99 );
-		add_action( "admin_post_nopriv_adviser_search", [ $this, "flodesign_adviser_search" ], 99 );
+		add_action( "pre_get_posts", [ $this, "flodesign_adviser_search" ], 99 );
+		add_filter( "posts_results", [ $this, "flodesign_sort_advisers_by_distance" ] );
 	}
 	
-	public function flodesign_adviser_search() {
-		if ( ! isset( $_POST['location'] ) ) {
-			throw new \InvalidArgumentException( "Location or adviser name required" );
+	public function flodesign_adviser_search( $query ) {
+		if ( is_admin() || ! is_post_type_archive( 'advisers' ) ) {
+			return;
 		}
 		
 		if ( isset( $_POST['specialisms'] ) ) {
-			$result = $this->flodesign_find_adviser_by_location( $_POST['location'], $_POST['specialisms'] );
+			$this->flodesign_find_adviser_by_location( $_POST['specialisms'], $query );
 		} else {
-			$result = $this->flodesign_find_adviser_by_location( $_POST['location'] );
+			$this->flodesign_find_adviser_by_location( $query );
 		}
-		
-		return $result;
 	}
 	
 	
@@ -36,18 +34,16 @@ class AdviserSearch {
 	 *
 	 * Function will find advisers ordered by distance from the input location.
 	 *
-	 * @param string $location User input of location
-	 *
 	 * @param array|null $specialisms Array of specialism terms from the search form
 	 *
-	 * @return array $results
+	 * @param $query
+	 *
+	 * @return void $results
 	 */
-	public function flodesign_find_adviser_by_location( $location, $specialisms = null ) {
-		$query         = new \WP_Query();
-		$codedLocation = $this->geocoder->flodesign_geocode_location( $location );
+	public function flodesign_find_adviser_by_location( $specialisms = null, $query ) {
 		
 		if ( $specialisms !== null ) {
-			$posts = $query->get_posts( [
+			$query->set( [
 				"post_type"   => "adviser",
 				"numberposts" => - 1,
 				"tax_query"   => [
@@ -61,30 +57,38 @@ class AdviserSearch {
 				]
 			] );
 		} else {
-			$posts = $query->get_posts( [
+			$query->set( [
 				"post_type"   => "adviser",
 				"numberposts" => - 1
 			] );
 		}
 		
-		foreach ( $posts as $post ) {
-			//Determine distance from geocoded Lat/Lng
-			$post->distance = $this->geocoder->flodesign_calculate_distance(
-				$codedLocation['lat'],
-				$codedLocation['lng'],
-				$post->lat,
-				$post->lng );
-		}
-		
-		// Sort posts by distance
-		usort( $posts, function ( $first, $second ) {
-			if ( $first->distance == $second->distance ) {
-				return 0;
+	}
+	
+	public function flodesign_sort_advisers_by_distance( $posts ) {
+		if ( ! is_admin() && is_post_type_archive( 'advisers' ) && isset( $_POST['location'] ) ) {
+			$codedLocation = $this->geocoder->flodesign_geocode_location( $_POST['location'] );
+			
+			foreach ( $posts as $post ) {
+				//Determine distance from geocoded Lat/Lng
+				$post->distance = $this->geocoder->flodesign_calculate_distance(
+					$codedLocation['lat'],
+					$codedLocation['lng'],
+					$post->lat,
+					$post->lng );
 			}
 			
-			return ( $first->distance < $second->distance ) ? - 1 : 1;
-		} );
+			// Sort posts by distance
+			usort( $posts, function ( $first, $second ) {
+				if ( $first->distance == $second->distance ) {
+					return 0;
+				}
+				
+				return ( $first->distance < $second->distance ) ? - 1 : 1;
+			} );
+			
+			return $posts;
+		}
 		
-		return $posts;
 	}
 }
